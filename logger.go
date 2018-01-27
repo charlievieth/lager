@@ -88,7 +88,6 @@ func (l *logger) Debug(action string, data ...Data) {
 		LogLevel:  DEBUG,
 		Data:      l.baseData(0, data...),
 	}
-
 	for _, sink := range l.sinks {
 		sink.Log(log)
 	}
@@ -118,11 +117,7 @@ func (l *logger) Error(action string, err error, data ...Data) {
 	logData := l.baseData(1, data...)
 
 	if err != nil {
-		if logData != nil {
-			logData["error"] = err.Error()
-		} else {
-			logData = Data{"error": err.Error()}
-		}
+		logData["error"] = err.Error()
 	}
 
 	log := LogFormat{
@@ -149,11 +144,6 @@ func (l *logger) Fatal(action string, err error, data ...Data) {
 	stackTrace = stackTrace[:stackSize]
 
 	logData := l.baseData(2, data...)
-	// we're blowing up the stack so allocating a map really
-	// isn't a performance issue here.
-	if logData == nil {
-		logData = make(Data, 2)
-	}
 	if err != nil {
 		logData["error"] = err.Error()
 	}
@@ -176,7 +166,7 @@ func (l *logger) Fatal(action string, err error, data ...Data) {
 
 func (l *logger) baseData(extra int, givenData ...Data) Data {
 	// ignore extra if there is no other data
-	if len(l.data) == 0 && len(givenData) == 0 {
+	if len(l.data) == 0 && len(givenData) == 0 && extra == 0 {
 		return nil
 	}
 	n := len(l.data) + extra
