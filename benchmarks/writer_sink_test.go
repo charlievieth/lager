@@ -2,6 +2,7 @@ package benchmarks
 
 import (
 	"fmt"
+	"io"
 	"runtime"
 	"testing"
 	"time"
@@ -15,6 +16,98 @@ import (
 type nopWriter struct{}
 
 func (nopWriter) Write(b []byte) (int, error) { return len(b), nil }
+
+// This should be a no-op
+func BenchmarkLogger_NoSink(b *testing.B) {
+	l := lager.NewLogger("benchmark")
+	for i := 0; i < b.N; i++ {
+		l.Debug("debug")
+	}
+}
+
+func BenchmarkLogger(b *testing.B) {
+	l := lager.NewLogger("benchmark")
+	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	for i := 0; i < b.N; i++ {
+		l.Debug("debug")
+	}
+}
+
+// When the log level is insufficient to trigger a write this should be a no-op
+func BenchmarkLogger_Noop(b *testing.B) {
+	l := lager.NewLogger("benchmark")
+	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.ERROR))
+	for i := 0; i < b.N; i++ {
+		l.Debug("debug")
+	}
+}
+
+func BenchmarkLogger_Data(b *testing.B) {
+	data := lager.Data{
+		"id":     123456,
+		"method": "GET",
+		"url":    "https://golang.org/pkg/",
+	}
+	l := lager.NewLogger("benchmark")
+	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	for i := 0; i < b.N; i++ {
+		l.Debug("debug", data)
+	}
+}
+
+// Highlight the impact of adding another value to the map after its
+// been constructed.
+func BenchmarkLogger_Data_Error(b *testing.B) {
+	data := lager.Data{
+		"id":     123456,
+		"method": "GET",
+		"url":    "https://golang.org/pkg/",
+	}
+	l := lager.NewLogger("benchmark")
+	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	for i := 0; i < b.N; i++ {
+		l.Error("error", io.EOF, data)
+	}
+}
+
+func BenchmarkLogger_WithData(b *testing.B) {
+	data := lager.Data{
+		"id":     123456,
+		"method": "GET",
+		"url":    "https://golang.org/pkg/",
+	}
+	l := lager.NewLogger("benchmark").WithData(data)
+	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	for i := 0; i < b.N; i++ {
+		l.Debug("debug")
+	}
+}
+
+func BenchmarkLogger_CombineData(b *testing.B) {
+	data := lager.Data{
+		"id":     123456,
+		"method": "GET",
+		"url":    "https://golang.org/pkg/",
+	}
+	l := lager.NewLogger("benchmark").WithData(data)
+	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	for i := 0; i < b.N; i++ {
+		l.Debug("debug", data)
+	}
+}
+
+func BenchmarkLogger_CombineData_Error(b *testing.B) {
+	data := lager.Data{
+		"id":     123456,
+		"method": "GET",
+		"url":    "https://golang.org/pkg/",
+	}
+	l := lager.NewLogger("benchmark").WithData(data)
+	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	for i := 0; i < b.N; i++ {
+		l.Error("debug", io.EOF, data)
+	}
+}
 
 func benchmarkWriterSink(b *testing.B, log lager.LogFormat) {
 	sink := lager.NewWriterSink(nopWriter{}, lager.DEBUG)
