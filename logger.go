@@ -63,7 +63,7 @@ func (l *logger) Session(task string, data ...Data) Logger {
 		task:      l.task + "." + task,
 		sinks:     l.sinks,
 		sessionID: sessionIDstr,
-		data:      l.baseData(data...),
+		data:      l.baseData(0, data...),
 	}
 }
 
@@ -73,7 +73,7 @@ func (l *logger) WithData(data Data) Logger {
 		task:      l.task,
 		sinks:     l.sinks,
 		sessionID: l.sessionID,
-		data:      l.baseData(data),
+		data:      l.baseData(0, data),
 	}
 }
 
@@ -83,7 +83,7 @@ func (l *logger) Debug(action string, data ...Data) {
 		Source:    l.component,
 		Message:   l.task + "." + action,
 		LogLevel:  DEBUG,
-		Data:      l.baseData(data...),
+		Data:      l.baseData(0, data...),
 	}
 
 	for _, sink := range l.sinks {
@@ -97,7 +97,7 @@ func (l *logger) Info(action string, data ...Data) {
 		Source:    l.component,
 		Message:   l.task + "." + action,
 		LogLevel:  INFO,
-		Data:      l.baseData(data...),
+		Data:      l.baseData(0, data...),
 	}
 
 	for _, sink := range l.sinks {
@@ -106,10 +106,14 @@ func (l *logger) Info(action string, data ...Data) {
 }
 
 func (l *logger) Error(action string, err error, data ...Data) {
-	logData := l.baseData(data...)
+	logData := l.baseData(1, data...)
 
 	if err != nil {
-		logData["error"] = err.Error()
+		if logData != nil {
+			logData["error"] = err.Error()
+		} else {
+			logData = Data{"error": err.Error()}
+		}
 	}
 
 	log := LogFormat{
@@ -127,16 +131,20 @@ func (l *logger) Error(action string, err error, data ...Data) {
 }
 
 func (l *logger) Fatal(action string, err error, data ...Data) {
-	logData := l.baseData(data...)
+	logData := l.baseData(2, data...)
 
 	stackTrace := make([]byte, StackTraceBufferSize)
 	stackSize := runtime.Stack(stackTrace, false)
 	stackTrace = stackTrace[:stackSize]
 
+	// we're blowing up the stack so allocating a map really
+	// isn't a performance issue here.
+	if logData == nil {
+		logData = make(Data, 2)
+	}
 	if err != nil {
 		logData["error"] = err.Error()
 	}
-
 	logData["trace"] = string(stackTrace)
 
 	log := LogFormat{
@@ -155,25 +163,33 @@ func (l *logger) Fatal(action string, err error, data ...Data) {
 	panic(err)
 }
 
-func (l *logger) baseData(givenData ...Data) Data {
-	data := Data{}
-
+func (l *logger) baseData(extra int, givenData ...Data) Data {
+	// ignore extra if there is no other data
+	if len(l.data) == 0 && len(givenData) == 0 {
+		return nil
+	}
+	n := len(l.data) + extra
+	if l.sessionID != "" {
+		n++
+	}
+	for _, m := range givenData {
+		n += len(m)
+	}
+	if n == 0 {
+		return nil
+	}
+	data := make(Data, n)
 	for k, v := range l.data {
 		data[k] = v
 	}
-
-	if len(givenData) > 0 {
-		for _, dataArg := range givenData {
-			for key, val := range dataArg {
-				data[key] = val
-			}
+	for _, m := range givenData {
+		for k, v := range m {
+			data[k] = v
 		}
 	}
-
 	if l.sessionID != "" {
 		data["session"] = l.sessionID
 	}
-
 	return data
 }
 
