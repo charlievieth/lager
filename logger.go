@@ -24,7 +24,7 @@ type Logger interface {
 type logger struct {
 	component   string
 	task        string
-	sinks       []Sink
+	sinks       []SinkLevel
 	sessionID   string
 	nextSession uint32
 	data        Data
@@ -34,13 +34,26 @@ func NewLogger(component string) Logger {
 	return &logger{
 		component: component,
 		task:      component,
-		sinks:     []Sink{},
-		data:      Data{},
 	}
 }
 
+// A sinkWrapper converts a Sink to a SinkLevel.  Since the minimum log level of
+// the underlying Sink cannot be known sinkWrapper.Level() always returns DEBUG,
+// ensuring it's Log() method will always be called.
+type sinkWrapper struct {
+	Sink
+}
+
+// Level returns the minimum log level, DEBUG, ensuring the sink will always be
+// called.
+func (s sinkWrapper) Level() LogLevel { return DEBUG }
+
 func (l *logger) RegisterSink(sink Sink) {
-	l.sinks = append(l.sinks, sink)
+	if sl, ok := sink.(SinkLevel); ok {
+		l.sinks = append(l.sinks, sl)
+	} else {
+		l.sinks = append(l.sinks, sinkWrapper{sink})
+	}
 }
 
 func (l *logger) SessionName() string {
@@ -77,8 +90,17 @@ func (l *logger) WithData(data Data) Logger {
 	}
 }
 
+func (l *logger) shouldLog(level LogLevel) bool {
+	for _, sv := range l.sinks {
+		if sv.Level() <= level {
+			return true
+		}
+	}
+	return false
+}
+
 func (l *logger) Debug(action string, data ...Data) {
-	if len(l.sinks) == 0 {
+	if !l.shouldLog(DEBUG) {
 		return
 	}
 	log := LogFormat{
@@ -94,7 +116,7 @@ func (l *logger) Debug(action string, data ...Data) {
 }
 
 func (l *logger) Info(action string, data ...Data) {
-	if len(l.sinks) == 0 {
+	if !l.shouldLog(INFO) {
 		return
 	}
 	log := LogFormat{
@@ -111,7 +133,7 @@ func (l *logger) Info(action string, data ...Data) {
 }
 
 func (l *logger) Error(action string, err error, data ...Data) {
-	if len(l.sinks) == 0 {
+	if !l.shouldLog(ERROR) {
 		return
 	}
 	logData := l.baseData(1, data...)
@@ -135,7 +157,7 @@ func (l *logger) Error(action string, err error, data ...Data) {
 }
 
 func (l *logger) Fatal(action string, err error, data ...Data) {
-	if len(l.sinks) == 0 {
+	if !l.shouldLog(FATAL) {
 		panic(err)
 	}
 
