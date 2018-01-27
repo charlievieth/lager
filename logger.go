@@ -78,6 +78,9 @@ func (l *logger) WithData(data Data) Logger {
 }
 
 func (l *logger) Debug(action string, data ...Data) {
+	if len(l.sinks) == 0 {
+		return
+	}
 	log := LogFormat{
 		Timestamp: currentTimestamp(),
 		Source:    l.component,
@@ -92,6 +95,9 @@ func (l *logger) Debug(action string, data ...Data) {
 }
 
 func (l *logger) Info(action string, data ...Data) {
+	if len(l.sinks) == 0 {
+		return
+	}
 	log := LogFormat{
 		Timestamp: currentTimestamp(),
 		Source:    l.component,
@@ -106,6 +112,9 @@ func (l *logger) Info(action string, data ...Data) {
 }
 
 func (l *logger) Error(action string, err error, data ...Data) {
+	if len(l.sinks) == 0 {
+		return
+	}
 	logData := l.baseData(1, data...)
 
 	if err != nil {
@@ -131,12 +140,15 @@ func (l *logger) Error(action string, err error, data ...Data) {
 }
 
 func (l *logger) Fatal(action string, err error, data ...Data) {
-	logData := l.baseData(2, data...)
+	if len(l.sinks) == 0 {
+		panic(err)
+	}
 
 	stackTrace := make([]byte, StackTraceBufferSize)
 	stackSize := runtime.Stack(stackTrace, false)
 	stackTrace = stackTrace[:stackSize]
 
+	logData := l.baseData(2, data...)
 	// we're blowing up the stack so allocating a map really
 	// isn't a performance issue here.
 	if logData == nil {
@@ -159,7 +171,6 @@ func (l *logger) Fatal(action string, err error, data ...Data) {
 	for _, sink := range l.sinks {
 		sink.Log(log)
 	}
-
 	panic(err)
 }
 
