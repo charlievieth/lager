@@ -15,18 +15,26 @@ type Sink interface {
 	Log(log LogFormat)
 }
 
+// A SinkLevel is a Sink that can also report it's minimum log level.
+type SinkLevel interface {
+	Sink
+	Level() LogLevel
+}
+
 type writerSink struct {
 	writer      io.Writer
 	minLogLevel LogLevel
 	writeL      sync.Mutex
 }
 
-func NewWriterSink(writer io.Writer, minLogLevel LogLevel) Sink {
+func NewWriterSink(writer io.Writer, minLogLevel LogLevel) SinkLevel {
 	return &writerSink{
 		writer:      writer,
 		minLogLevel: minLogLevel,
 	}
 }
+
+func (w *writerSink) Level() LogLevel { return w.minLogLevel }
 
 func (w *writerSink) handleErr(log *LogFormat, err error) {
 	switch err.(type) {
@@ -56,10 +64,10 @@ func (w *writerSink) encode(log *LogFormat) error {
 	return err
 }
 
-func (sink *writerSink) Log(log LogFormat) {
-	if log.LogLevel >= sink.minLogLevel {
-		if err := sink.encode(&log); err != nil {
-			sink.handleErr(&log, err)
+func (w *writerSink) Log(log LogFormat) {
+	if log.LogLevel >= w.minLogLevel {
+		if err := w.encode(&log); err != nil {
+			w.handleErr(&log, err)
 		}
 	}
 }

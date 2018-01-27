@@ -3,8 +3,7 @@ package lager
 import "sync/atomic"
 
 type ReconfigurableSink struct {
-	sink Sink
-
+	sink        Sink
 	minLogLevel int32
 }
 
@@ -14,6 +13,10 @@ func NewReconfigurableSink(sink Sink, initialMinLogLevel LogLevel) *Reconfigurab
 
 		minLogLevel: int32(initialMinLogLevel),
 	}
+}
+
+func (sink *ReconfigurableSink) Level() LogLevel {
+	return LogLevel(atomic.LoadInt32(&sink.minLogLevel))
 }
 
 func (sink *ReconfigurableSink) Log(log LogFormat) {

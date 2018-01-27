@@ -6,9 +6,9 @@ import (
 )
 
 type redactingWriterSink struct {
-	writer      io.Writer
-	minLogLevel LogLevel
-	writeL      *sync.Mutex
+	writer       io.Writer
+	minLogLevel  LogLevel
+	writeL       *sync.Mutex
 	jsonRedacter *JSONRedacter
 }
 
@@ -18,12 +18,14 @@ func NewRedactingWriterSink(writer io.Writer, minLogLevel LogLevel, keyPatterns 
 		return nil, err
 	}
 	return &redactingWriterSink{
-		writer:      writer,
-		minLogLevel: minLogLevel,
-		writeL:      new(sync.Mutex),
+		writer:       writer,
+		minLogLevel:  minLogLevel,
+		writeL:       new(sync.Mutex),
 		jsonRedacter: jsonRedacter,
 	}, nil
 }
+
+func (sink *redactingWriterSink) Level() LogLevel { return sink.minLogLevel }
 
 func (sink *redactingWriterSink) Log(log LogFormat) {
 	if log.LogLevel < sink.minLogLevel {
@@ -38,6 +40,3 @@ func (sink *redactingWriterSink) Log(log LogFormat) {
 	sink.writer.Write([]byte("\n"))
 	sink.writeL.Unlock()
 }
-
-
-
