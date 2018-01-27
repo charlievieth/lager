@@ -3,6 +3,7 @@ package lager
 import (
 	"fmt"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"time"
 )
@@ -59,7 +60,7 @@ func (l *logger) Session(task string, data ...Data) Logger {
 
 	return &logger{
 		component: l.component,
-		task:      fmt.Sprintf("%s.%s", l.task, task),
+		task:      l.task + "." + task,
 		sinks:     l.sinks,
 		sessionID: sessionIDstr,
 		data:      l.baseData(data...),
@@ -80,7 +81,7 @@ func (l *logger) Debug(action string, data ...Data) {
 	log := LogFormat{
 		Timestamp: currentTimestamp(),
 		Source:    l.component,
-		Message:   fmt.Sprintf("%s.%s", l.task, action),
+		Message:   l.task + "." + action,
 		LogLevel:  DEBUG,
 		Data:      l.baseData(data...),
 	}
@@ -94,7 +95,7 @@ func (l *logger) Info(action string, data ...Data) {
 	log := LogFormat{
 		Timestamp: currentTimestamp(),
 		Source:    l.component,
-		Message:   fmt.Sprintf("%s.%s", l.task, action),
+		Message:   l.task + "." + action,
 		LogLevel:  INFO,
 		Data:      l.baseData(data...),
 	}
@@ -114,7 +115,7 @@ func (l *logger) Error(action string, err error, data ...Data) {
 	log := LogFormat{
 		Timestamp: currentTimestamp(),
 		Source:    l.component,
-		Message:   fmt.Sprintf("%s.%s", l.task, action),
+		Message:   l.task + "." + action,
 		LogLevel:  ERROR,
 		Data:      logData,
 		Error:     err,
@@ -141,7 +142,7 @@ func (l *logger) Fatal(action string, err error, data ...Data) {
 	log := LogFormat{
 		Timestamp: currentTimestamp(),
 		Source:    l.component,
-		Message:   fmt.Sprintf("%s.%s", l.task, action),
+		Message:   l.task + "." + action,
 		LogLevel:  FATAL,
 		Data:      logData,
 		Error:     err,
@@ -177,5 +178,5 @@ func (l *logger) baseData(givenData ...Data) Data {
 }
 
 func currentTimestamp() string {
-	return fmt.Sprintf("%.9f", float64(time.Now().UnixNano())/1e9)
+	return strconv.FormatFloat(float64(time.Now().UnixNano())/1e9, 'f', 9, 64)
 }
