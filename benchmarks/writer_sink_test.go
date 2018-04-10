@@ -3,6 +3,7 @@ package benchmarks
 import (
 	"fmt"
 	"io"
+	"os"
 	"runtime"
 	"testing"
 	"time"
@@ -10,12 +11,15 @@ import (
 	"code.cloudfoundry.org/lager"
 )
 
-// TODO: Benchmark against a real file (maybe /dev/null) to demonstrate
-// the impact of calling Write() twice.
+var devNull *os.File
 
-type nopWriter struct{}
-
-func (nopWriter) Write(b []byte) (int, error) { return len(b), nil }
+func init() {
+	var err error
+	devNull, err = os.Open(os.DevNull)
+	if err != nil {
+		panic(err)
+	}
+}
 
 // This should be a no-op
 func BenchmarkLogger_NoSink(b *testing.B) {
@@ -27,7 +31,7 @@ func BenchmarkLogger_NoSink(b *testing.B) {
 
 func BenchmarkLogger(b *testing.B) {
 	l := lager.NewLogger("benchmark")
-	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	l.RegisterSink(lager.NewWriterSink(devNull, lager.DEBUG))
 	for i := 0; i < b.N; i++ {
 		l.Debug("debug")
 	}
@@ -36,7 +40,7 @@ func BenchmarkLogger(b *testing.B) {
 // When the log level is insufficient to trigger a write this should be a no-op
 func BenchmarkLogger_Noop(b *testing.B) {
 	l := lager.NewLogger("benchmark")
-	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.ERROR))
+	l.RegisterSink(lager.NewWriterSink(devNull, lager.ERROR))
 	for i := 0; i < b.N; i++ {
 		l.Debug("debug")
 	}
@@ -49,7 +53,7 @@ func BenchmarkLogger_Data(b *testing.B) {
 		"url":    "https://golang.org/pkg/",
 	}
 	l := lager.NewLogger("benchmark")
-	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	l.RegisterSink(lager.NewWriterSink(devNull, lager.DEBUG))
 	for i := 0; i < b.N; i++ {
 		l.Debug("debug", data)
 	}
@@ -64,7 +68,7 @@ func BenchmarkLogger_Data_Error(b *testing.B) {
 		"url":    "https://golang.org/pkg/",
 	}
 	l := lager.NewLogger("benchmark")
-	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	l.RegisterSink(lager.NewWriterSink(devNull, lager.DEBUG))
 	for i := 0; i < b.N; i++ {
 		l.Error("error", io.EOF, data)
 	}
@@ -77,7 +81,7 @@ func BenchmarkLogger_WithData(b *testing.B) {
 		"url":    "https://golang.org/pkg/",
 	}
 	l := lager.NewLogger("benchmark").WithData(data)
-	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	l.RegisterSink(lager.NewWriterSink(devNull, lager.DEBUG))
 	for i := 0; i < b.N; i++ {
 		l.Debug("debug")
 	}
@@ -90,7 +94,7 @@ func BenchmarkLogger_CombineData(b *testing.B) {
 		"url":    "https://golang.org/pkg/",
 	}
 	l := lager.NewLogger("benchmark").WithData(data)
-	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	l.RegisterSink(lager.NewWriterSink(devNull, lager.DEBUG))
 	for i := 0; i < b.N; i++ {
 		l.Debug("debug", data)
 	}
@@ -103,14 +107,14 @@ func BenchmarkLogger_CombineData_Error(b *testing.B) {
 		"url":    "https://golang.org/pkg/",
 	}
 	l := lager.NewLogger("benchmark").WithData(data)
-	l.RegisterSink(lager.NewWriterSink(nopWriter{}, lager.DEBUG))
+	l.RegisterSink(lager.NewWriterSink(devNull, lager.DEBUG))
 	for i := 0; i < b.N; i++ {
 		l.Error("debug", io.EOF, data)
 	}
 }
 
 func benchmarkWriterSink(b *testing.B, log lager.LogFormat) {
-	sink := lager.NewWriterSink(nopWriter{}, lager.DEBUG)
+	sink := lager.NewWriterSink(devNull, lager.DEBUG)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		sink.Log(log)
@@ -163,7 +167,7 @@ func BenchmarkWriterSink_Parallel_Small(b *testing.B) {
 			"method": "GET",
 		},
 	}
-	sink := lager.NewWriterSink(nopWriter{}, lager.DEBUG)
+	sink := lager.NewWriterSink(devNull, lager.DEBUG)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -190,7 +194,7 @@ func BenchmarkWriterSink_Parallel_Large(b *testing.B) {
 			},
 		},
 	}
-	sink := lager.NewWriterSink(nopWriter{}, lager.DEBUG)
+	sink := lager.NewWriterSink(devNull, lager.DEBUG)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
